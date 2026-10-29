@@ -1,0 +1,11 @@
+.git
+.github
+.claude
+data
+report
+backend/.venv
+**/__pycache__
+**/*.egg-info
+backend/tests
+frontend/node_modules
+frontend/dist

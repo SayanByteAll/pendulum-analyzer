@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: pendulum-analyzer
+    runtime: docker
+    plan: free
+    branch: render
+    healthCheckPath: /api/health
+    envVars:
+      # На бесплатном тарифе 512 МБ памяти — больше одного трекинга сразу не потянет.
+      - key: PENDULUM_TRACKING_WORKERS
+        value: "1"
+      - key: PENDULUM_MAX_UPLOAD_MB
+        value: "200"
