@@ -27,8 +27,14 @@ COPY deploy/seed/ /app/data/
 RUN rm -f /app/data/.gitkeep && chown -R user:user /app/data
 
 USER user
+# Онлайн-версия рассчитана на бесплатный сервер с 512 МБ: только просмотр готовых результатов,
+# один поток декодера и не больше двух кадров одновременно.
 ENV PENDULUM_DATA_DIR=/app/data \
     PENDULUM_FRONTEND_DIST=/app/frontend/dist \
+    PENDULUM_TRACKING_WORKERS=1 \
+    PENDULUM_DECODE_THREADS=1 \
+    PENDULUM_FRAME_SLOTS=2 \
+    PENDULUM_VIDEO_PROCESSING=0 \
     PORT=7860
 EXPOSE 7860
 
