@@ -3,17 +3,26 @@ from __future__ import annotations
 import base64
 import shutil
 from collections import OrderedDict
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import asdict
+from functools import lru_cache
 from pathlib import Path
-from threading import Lock
+from threading import BoundedSemaphore, Lock
 from typing import Annotated
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, Form, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse
 
-from app.api.deps import AppSettings, DbSession, Queue, get_or_404, remove_video_files
+from app.api.deps import (
+    AppSettings,
+    DbSession,
+    Queue,
+    get_or_404,
+    remove_video_files,
+    require_video_processing,
+)
 from app.api.serializers import segment_out, video_out
 from app.models import Experiment, Video, VideoSegment, VideoStatus
 from app.schemas import (
@@ -67,6 +76,7 @@ def _source(settings: AppSettings, video: Video) -> Path:
     "/experiments/{experiment_id}/videos",
     response_model=VideoOut,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_video_processing)],
 )
 def upload_video(
     experiment_id: int,
@@ -156,9 +166,19 @@ def delete_video(video_id: int, db: DbSession, settings: AppSettings) -> Respons
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@lru_cache
+def _frame_gate(slots: int) -> AbstractContextManager:
+    """Каждое декодирование держит в памяти свои буферы; при перемотке ползунка запросы идут
+    пачкой, и на маленьком сервере их нужно пускать по очереди."""
+    return BoundedSemaphore(slots) if slots > 0 else nullcontext()
+
+
 def _read_frame(settings: AppSettings, video: Video, time_s: float):
     try:
-        return read_frame_at(_source(settings, video), min(time_s, max(video.duration_s - 0.05, 0)))
+        with _frame_gate(settings.frame_slots):
+            return read_frame_at(
+                _source(settings, video), min(time_s, max(video.duration_s - 0.05, 0))
+            )
     except VideoError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -191,7 +211,11 @@ def get_frame(
     )
 
 
-@router.post("/videos/{video_id}/sample-color", response_model=ColorIn)
+@router.post(
+    "/videos/{video_id}/sample-color",
+    response_model=ColorIn,
+    dependencies=[Depends(require_video_processing)],
+)
 def sample_color(
     video_id: int, payload: SampleColorIn, db: DbSession, settings: AppSettings
 ) -> ColorIn:
@@ -225,7 +249,11 @@ def _preview_background(path: Path, video_id: int, params: TrackingParams, time_
     return background
 
 
-@router.post("/videos/{video_id}/preview", response_model=PreviewOut)
+@router.post(
+    "/videos/{video_id}/preview",
+    response_model=PreviewOut,
+    dependencies=[Depends(require_video_processing)],
+)
 def preview_detection(
     video_id: int, payload: PreviewIn, db: DbSession, settings: AppSettings
 ) -> PreviewOut:
@@ -257,7 +285,11 @@ def preview_detection(
     )
 
 
-@router.post("/videos/{video_id}/track", response_model=VideoOut)
+@router.post(
+    "/videos/{video_id}/track",
+    response_model=VideoOut,
+    dependencies=[Depends(require_video_processing)],
+)
 def start_tracking(
     video_id: int, payload: TrackingParamsIn, db: DbSession, queue: Queue
 ) -> VideoOut:

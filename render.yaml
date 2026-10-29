@@ -11,3 +11,10 @@ services:
         value: "1"
       - key: PENDULUM_MAX_UPLOAD_MB
         value: "200"
+      # Один поток декодера и без обработки видео: иначе кадры 4K и предпросмотр съедают >512 МБ.
+      - key: PENDULUM_DECODE_THREADS
+        value: "1"
+      - key: PENDULUM_VIDEO_PROCESSING
+        value: "0"
+      - key: PENDULUM_FRAME_SLOTS
+        value: "2"

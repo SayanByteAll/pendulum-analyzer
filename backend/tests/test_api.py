@@ -3,8 +3,11 @@ import io
 import sqlite3
 
 import pytest
+from fastapi.testclient import TestClient
 
+from app.config import Settings
 from app.db import SCHEMA_VERSION, prepare_sqlite_file
+from app.main import create_app
 from app.science.synthetic import SyntheticPendulum, render_video
 from tests.conftest import wait_for_videos
 
@@ -197,3 +200,23 @@ def test_outdated_database_is_backed_up(tmp_path):
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     prepare_sqlite_file(db)  # актуальная версия — не трогаем
     assert db.exists()
+
+
+def test_video_processing_can_be_turned_off(tmp_path):
+    settings = Settings(
+        data_dir=tmp_path,
+        frontend_dist=tmp_path / "no-frontend",
+        max_upload_mb=50,
+        tracking_workers=1,
+        video_processing=False,
+    )
+    with TestClient(create_app(settings)) as client:
+        experiment = client.post("/api/experiments", json={"name": "Онлайн"}).json()
+        assert client.get(f"/api/experiments/{experiment['id']}/analysis").status_code == 200
+        video = tmp_path / "clip.mp4"
+        video.write_bytes(b"not a video")
+        resp = upload(client, experiment["id"], video)
+        assert resp.status_code == 503
+        assert "отключена в онлайн-версии" in resp.json()["detail"]
+        for path in ("preview", "track", "sample-color"):
+            assert client.post(f"/api/videos/1/{path}", json={}).status_code == 503

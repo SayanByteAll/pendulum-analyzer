@@ -33,6 +33,15 @@ Queue = Annotated[TrackingQueue, Depends(get_queue)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
 
 
+def require_video_processing(settings: AppSettings) -> None:
+    if not settings.video_processing:
+        raise HTTPException(
+            status_code=503,
+            detail="Обработка видео отключена в онлайн-версии: на сервере мало памяти. "
+            "Готовые результаты доступны для просмотра.",
+        )
+
+
 def get_or_404(session: Session, model: type[T], obj_id: int, what: str) -> T:
     obj = session.get(model, obj_id)
     if obj is None:

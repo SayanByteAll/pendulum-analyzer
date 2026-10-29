@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import math
+import os
 import warnings
 from collections import deque
 from collections.abc import Callable, Iterator
@@ -119,8 +120,16 @@ class TrackResult:
         return float(np.isfinite(self.x).mean()) if self.x.size else 0.0
 
 
+# Потоки декодера: по умолчанию OpenCV берёт все ядра, и на каждый поток уходят свои буферы кадров.
+# На хостинге с 512 МБ это роняет сервер, там ставим PENDULUM_DECODE_THREADS=1.
+DECODE_THREADS = int(os.environ.get("PENDULUM_DECODE_THREADS", "0"))
+
+
 def _open(path: Path) -> cv2.VideoCapture:
-    cap = cv2.VideoCapture(str(path))
+    if DECODE_THREADS > 0:
+        cap = cv2.VideoCapture(str(path), cv2.CAP_FFMPEG, [cv2.CAP_PROP_N_THREADS, DECODE_THREADS])
+    else:
+        cap = cv2.VideoCapture(str(path))
     if not cap.isOpened():
         raise VideoError("Не удалось открыть видео — формат не поддерживается или файл повреждён.")
     return cap

@@ -14,6 +14,11 @@ class Settings:
     frontend_dist: Path
     max_upload_mb: int
     tracking_workers: int
+    video_processing: bool = True
+    """False — только просмотр готовых результатов (хостинг с малой памятью): без загрузки
+    видео, предпросмотра и трекинга."""
+    frame_slots: int = 0
+    """Сколько кадров декодировать одновременно (0 — без ограничения). Остальные ждут очереди."""
 
     @property
     def database_path(self) -> Path:
@@ -37,4 +42,7 @@ def get_settings() -> Settings:
         ).resolve(),
         max_upload_mb=int(os.environ.get("PENDULUM_MAX_UPLOAD_MB", "1024")),
         tracking_workers=int(os.environ.get("PENDULUM_TRACKING_WORKERS", "2")),
+        video_processing=os.environ.get("PENDULUM_VIDEO_PROCESSING", "1").lower()
+        not in ("0", "false", "off"),
+        frame_slots=int(os.environ.get("PENDULUM_FRAME_SLOTS", "0")),
     )

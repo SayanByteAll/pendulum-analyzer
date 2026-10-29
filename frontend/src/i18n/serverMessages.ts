@@ -37,6 +37,10 @@ const LITERALS: Record<string, Texts> = {
     kk: "Траектория әлі құрылмаған",
     en: "The trajectory has not been built yet",
   },
+  "Обработка видео отключена в онлайн-версии: на сервере мало памяти. Готовые результаты доступны для просмотра.": {
+    kk: "Онлайн-нұсқада бейнені өңдеу өшірілген: серверде жад аз. Дайын нәтижелерді қарауға болады.",
+    en: "Video processing is turned off in the online version because the server has little memory. Finished results can still be viewed.",
+  },
   "Сначала обработайте видео": {
     kk: "Алдымен бейнені өңдеңіз",
     en: "Process the video first",
